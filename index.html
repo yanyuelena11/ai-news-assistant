@@ -5,21 +5,96 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       name="description"
-      content="AI News Assistant deployment smoke test"
+      content="Load and filter current AI news, then retrieve a clean Deep Read with Firecrawl."
     />
-    <title>AI News Briefing — Deployment Smoke Test</title>
+    <title>AI News Briefing</title>
     <link rel="stylesheet" href="style.css" />
+    <script src="script.js" defer></script>
   </head>
   <body>
-    <main class="launch-card">
-      <p class="eyebrow">AI News Briefing</p>
-      <div class="status" aria-label="Deployment status: online">
-        <span class="status-dot" aria-hidden="true"></span>
-        Deployment online
-      </div>
-      <h1>Breaking News:<br />Your Website Exists.</h1>
-      <p class="subtitle">Codex <span>→</span> GitHub <span>→</span> Vercel: ALIVE</p>
-      <p class="caption">Phase 0 deployment smoke test</p>
-    </main>
+    <div class="page-shell">
+      <header class="site-header">
+        <a class="brand" href="#top" aria-label="AI News Briefing home">
+          <span class="brand-mark" aria-hidden="true">N</span>
+          <span>AI News Briefing</span>
+        </a>
+        <p>RSS finds what changed. Deep Read retrieves what matters.</p>
+      </header>
+
+      <main id="top">
+        <section class="hero" aria-labelledby="page-title">
+          <p class="eyebrow">Your signal desk for artificial intelligence</p>
+          <h1 id="page-title">Fresh AI news.<br /><span>One clear radar.</span></h1>
+          <p class="hero-copy">
+            Bring together the latest reporting from WIRED, TechCrunch, and
+            VentureBeat—then retrieve a cleaner reading view for any story.
+          </p>
+          <div class="source-row" aria-label="News sources">
+            <span>WIRED</span>
+            <span>TechCrunch</span>
+            <span>VentureBeat</span>
+          </div>
+        </section>
+
+        <section class="news-radar" aria-labelledby="radar-title">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">RSS discovery</p>
+              <h2 id="radar-title">News Radar</h2>
+            </div>
+            <p>Load once, then filter the stories already on your screen.</p>
+          </div>
+
+          <div class="controls">
+            <button class="primary-button" id="load-news" type="button">
+              <span>Load Latest News</span>
+              <span aria-hidden="true">↗</span>
+            </button>
+
+            <label class="filter-field" for="news-filter">
+              <span>Filter by keyword or topic</span>
+              <input
+                id="news-filter"
+                type="search"
+                placeholder="Try: agents, chips, policy…"
+                autocomplete="off"
+                disabled
+              />
+            </label>
+          </div>
+
+          <p class="message" id="news-message" role="status" aria-live="polite">
+            Your briefing is ready when you are.
+          </p>
+
+          <section
+            class="deep-read-panel"
+            id="deep-read-panel"
+            aria-labelledby="deep-read-title"
+            aria-live="polite"
+            hidden
+          >
+            <div class="panel-label">
+              <span class="pulse" aria-hidden="true"></span>
+              Firecrawl retrieval
+            </div>
+            <div id="deep-read-content"></div>
+          </section>
+
+          <div class="article-grid" id="article-list">
+            <div class="empty-state">
+              <span aria-hidden="true">◎</span>
+              <h3>No stories loaded yet</h3>
+              <p>Select “Load Latest News” to scan the three RSS feeds.</p>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <footer>
+        <p>Discovery by RSS <span>•</span> Retrieval by Firecrawl</p>
+        <p>Phase 1</p>
+      </footer>
+    </div>
   </body>
 </html>

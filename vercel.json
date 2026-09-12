@@ -1,0 +1,12 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "functions": {
+    "api/news.js": {
+      "maxDuration": 20
+    },
+    "api/scrape.js": {
+      "maxDuration": 30
+    }
+  }
+}

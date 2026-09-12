@@ -1,0 +1,16 @@
+{
+  "name": "ai-news-assistant",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A classroom AI news briefing built with RSS and Firecrawl.",
+  "scripts": {
+    "check": "node --check script.js && node --check api/news.js && node --check api/scrape.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "fast-xml-parser": "^5.11.1"
+  }
+}
