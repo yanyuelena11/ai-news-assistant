@@ -315,6 +315,24 @@ function explanation(job) {
   ];
 }
 
+function jobIdentity(job) {
+  if (job.jobUrl) {
+    try {
+      const url = new URL(job.jobUrl);
+      url.hash = "";
+      url.search = "";
+      url.pathname = url.pathname
+        .replace(/\/application\/?$/i, "")
+        .replace(/\/$/, "") || "/";
+      return url.href.toLowerCase();
+    } catch {
+      // Fall through to the visible job details when a URL cannot be normalized.
+    }
+  }
+
+  return `${job.sourceDomain}|${job.title}|${job.employer}`.toLowerCase();
+}
+
 function rankJobs(jobs) {
   const seen = new Set();
   return jobs
@@ -322,7 +340,7 @@ function rankJobs(jobs) {
     .filter((job) => {
       const hasEarlyCareerEvidence = job.juniorEvidence.length > 0
         || JUNIOR_PATTERN.test(`${job.title} ${job.description}`);
-      const key = job.jobUrl || `${job.sourceDomain}|${job.title}|${job.employer}`.toLowerCase();
+      const key = jobIdentity(job);
       if (!hasEarlyCareerEvidence || job.score === 0 || seen.has(key)) return false;
       seen.add(key);
       return true;

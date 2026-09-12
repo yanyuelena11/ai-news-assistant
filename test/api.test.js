@@ -157,6 +157,29 @@ test("job ranking deprioritizes senior roles and returns exactly three reasons",
   ]);
 });
 
+test("job ranking merges posting and application URLs for the same role", () => {
+  const source = new URL("https://jobs.ashbyhq.com/nooks/role-id");
+  const job = jobsHandler._test.normalizeJob({
+    title: "Software Engineer, New Grad",
+    employer: "Nooks.ai",
+    jobUrl: source.href,
+    description: "New grad software engineering role.",
+    juniorEvidence: ["New Grad"],
+    transferableSkills: ["Software engineering"],
+    futureRelevantSignals: ["AI"],
+    learningSignals: [],
+    seniorityWarnings: [],
+  }, source);
+
+  const ranked = jobsHandler._test.rankJobs([
+    { ...job, jobUrl: `${source.href}/application` },
+    job,
+  ]);
+
+  assert.equal(ranked.length, 1);
+  assert.equal(ranked[0].title, "Software Engineer, New Grad");
+});
+
 test("job extraction discards structured claims not grounded in scraped text", () => {
   const source = new URL("https://jobs.example.com/search");
   const page = "Graduate Research Assistant — Example University. Apply at /roles/graduate-research.";
