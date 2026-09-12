@@ -157,6 +157,29 @@ test("job ranking deprioritizes senior roles and returns exactly three reasons",
   ]);
 });
 
+test("job extraction discards structured claims not grounded in scraped text", () => {
+  const source = new URL("https://jobs.example.com/search");
+  const page = "Graduate Research Assistant — Example University. Apply at /roles/graduate-research.";
+  const grounded = jobsHandler._test.normalizeJob({
+    title: "Graduate Research Assistant",
+    employer: "Example University",
+    jobUrl: "/roles/graduate-research",
+    juniorEvidence: ["Graduate Research Assistant"],
+    transferableSkills: ["Research"],
+  }, source, page);
+  const invented = jobsHandler._test.normalizeJob({
+    title: "Junior Quantum Engineer",
+    employer: "Imaginary Labs",
+    juniorEvidence: ["No experience required"],
+  }, source, page);
+
+  assert.equal(grounded.title, "Graduate Research Assistant");
+  assert.equal(grounded.employer, "Example University");
+  assert.equal(grounded.jobUrl, "https://jobs.example.com/roles/graduate-research");
+  assert.equal(grounded.transferableSkills.length, 1);
+  assert.equal(invented, null);
+});
+
 test("job scan handles one source and the five-source limit", async () => {
   const originalFetch = global.fetch;
   const originalKey = process.env.FIRECRAWL_API_KEY;
@@ -205,7 +228,20 @@ test("job scan keeps successful sources when another source fails", async () => 
         return {
           success: true,
           data: {
-            markdown: "Visible graduate opportunities",
+            markdown: [
+              "Junior Policy Analyst",
+              "Public Service",
+              "Remote",
+              "/jobs/123",
+              "2026-09-12",
+              "Full time",
+              "Entry-level analysis role with mentoring.",
+              "Entry-level role",
+              "Research",
+              "Writing",
+              "Digital policy",
+              "Mentoring",
+            ].join(" "),
             json: {
               jobs: [{
                 title: "Junior Policy Analyst",
@@ -242,6 +278,6 @@ test("job scan keeps successful sources when another source fails", async () => 
   assert.equal(result.body.sources[0].status, "extracted");
   assert.equal(result.body.sources[1].status, "failed");
   assert.equal(result.body.jobs[0].jobUrl, "https://jobs.example/jobs/123");
-  assert.doesNotMatch(JSON.stringify(result.body), /Visible graduate opportunities/);
+  assert.doesNotMatch(JSON.stringify(result.body), /markdown/i);
   assert.doesNotMatch(JSON.stringify(result.body), /test-secret/);
 });

@@ -10,6 +10,8 @@ const EXTRACTION_PROMPT = [
   "date, employment type, short description, junior or graduate evidence, transferable skills,",
   "future-relevant technology/digital/data/policy/innovation signals, learning or training signals,",
   "and evidence that the role is senior. Use empty strings or arrays when evidence is unavailable.",
+  "Every evidence array item must be a short exact quote copied from the page, not a paraphrase.",
+  "Only return a direct job URL when that link is visibly present on the page.",
   "Do not infer unsupported facts and do not return more than 8 jobs.",
 ].join(" ");
 
@@ -147,36 +149,54 @@ function cleanList(value) {
   return [...new Set(value.map((item) => cleanString(item, 220)).filter(Boolean))].slice(0, 5);
 }
 
-function safeJobUrl(value, sourceUrl) {
+function matchable(value) {
+  if (typeof value !== "string") return "";
+  return value.replace(/\s+/g, " ").trim().toLocaleLowerCase();
+}
+
+function groundedString(value, pageText, limit) {
+  const cleaned = cleanString(value, limit);
+  if (!cleaned || !pageText) return cleaned;
+  return matchable(pageText).includes(matchable(cleaned)) ? cleaned : "";
+}
+
+function groundedList(value, pageText, pattern) {
+  return cleanList(value).filter((item) => {
+    const appearsOnPage = !pageText || matchable(pageText).includes(matchable(item));
+    return appearsOnPage && (!pattern || pattern.test(item));
+  });
+}
+
+function safeJobUrl(value, sourceUrl, pageText = "") {
   if (!value) return "";
   try {
     const url = new URL(value, sourceUrl);
-    return ["http:", "https:"].includes(url.protocol) && !isPrivateHostname(url.hostname)
-      ? url.href
-      : "";
+    const safe = ["http:", "https:"].includes(url.protocol) && !isPrivateHostname(url.hostname);
+    const visiblyLinked = !pageText || pageText.includes(value) || pageText.includes(url.href);
+    return safe && visiblyLinked ? url.href : "";
   } catch {
     return "";
   }
 }
 
-function normalizeJob(value, sourceUrl) {
+function normalizeJob(value, sourceUrl, pageText = "") {
   const job = value && typeof value === "object" ? value : {};
-  const title = cleanString(job.title, 180);
+  const title = groundedString(job.title, pageText, 180);
   if (!title) return null;
 
   return {
     title,
-    employer: cleanString(job.employer, 160),
-    location: cleanString(job.location, 160),
-    jobUrl: safeJobUrl(job.jobUrl, sourceUrl),
-    postedDate: cleanString(job.postedDate, 80),
-    employmentType: cleanString(job.employmentType, 100),
-    description: cleanString(job.description, 500),
-    juniorEvidence: cleanList(job.juniorEvidence),
-    transferableSkills: cleanList(job.transferableSkills),
-    futureRelevantSignals: cleanList(job.futureRelevantSignals),
-    learningSignals: cleanList(job.learningSignals),
-    seniorityWarnings: cleanList(job.seniorityWarnings),
+    employer: groundedString(job.employer, pageText, 160),
+    location: groundedString(job.location, pageText, 160),
+    jobUrl: safeJobUrl(job.jobUrl, sourceUrl, pageText),
+    postedDate: groundedString(job.postedDate, pageText, 80),
+    employmentType: groundedString(job.employmentType, pageText, 100),
+    description: groundedString(job.description, pageText, 500),
+    juniorEvidence: groundedList(job.juniorEvidence, pageText, JUNIOR_PATTERN),
+    transferableSkills: groundedList(job.transferableSkills, pageText),
+    futureRelevantSignals: groundedList(job.futureRelevantSignals, pageText),
+    learningSignals: groundedList(job.learningSignals, pageText),
+    seniorityWarnings: groundedList(job.seniorityWarnings, pageText, SENIOR_PATTERN),
     sourceDomain: sourceUrl.hostname.replace(/^www\./, ""),
     sourceUrl: sourceUrl.href,
   };
@@ -224,8 +244,10 @@ function rankJobs(jobs) {
   return jobs
     .map((job) => ({ ...job, score: scoreJob(job) }))
     .filter((job) => {
+      const hasEarlyCareerEvidence = job.juniorEvidence.length > 0
+        || JUNIOR_PATTERN.test(`${job.title} ${job.description}`);
       const key = job.jobUrl || `${job.sourceDomain}|${job.title}|${job.employer}`.toLowerCase();
-      if (seen.has(key)) return false;
+      if (!hasEarlyCareerEvidence || job.score === 0 || seen.has(key)) return false;
       seen.add(key);
       return true;
     })
@@ -284,7 +306,7 @@ async function extractSource(url, apiKey) {
     const extracted = Array.isArray(payload.data.json?.jobs)
       ? payload.data.json.jobs.slice(0, MAX_JOBS_PER_SOURCE)
       : [];
-    const jobs = extracted.map((job) => normalizeJob(job, url)).filter(Boolean);
+    const jobs = extracted.map((job) => normalizeJob(job, url, markdown)).filter(Boolean);
     if (jobs.length === 0) {
       return {
         jobs: [],
