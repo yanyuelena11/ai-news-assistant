@@ -144,7 +144,8 @@ h1 span {
 }
 
 .news-radar,
-.web-explorer {
+.web-explorer,
+.job-scout {
   padding: clamp(2rem, 5vw, 4rem);
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 28px;
@@ -153,10 +154,20 @@ h1 span {
   backdrop-filter: blur(18px);
 }
 
-.web-explorer {
+.web-explorer,
+.job-scout {
   margin-top: 1.5rem;
+}
+
+.web-explorer {
   background:
     linear-gradient(135deg, rgba(83, 118, 255, 0.08), transparent 42%),
+    rgba(10, 24, 41, 0.8);
+}
+
+.job-scout {
+  background:
+    linear-gradient(135deg, rgba(237, 167, 74, 0.08), transparent 42%),
     rgba(10, 24, 41, 0.8);
 }
 
@@ -200,6 +211,101 @@ h2 {
 
 .explorer-url-field {
   min-width: 0;
+}
+
+.job-scout-form {
+  margin-top: 2.5rem;
+}
+
+.job-source-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+
+.job-source {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.45rem 1rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.job-source:first-child {
+  grid-column: 1 / -1;
+}
+
+.job-source:focus-within {
+  border-color: rgba(69, 232, 182, 0.7);
+  box-shadow: 0 0 0 3px rgba(69, 232, 182, 0.09);
+}
+
+.job-source-label {
+  color: #91a4b8;
+  font-size: 0.7rem;
+  font-weight: 750;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.job-source-label strong {
+  margin-left: 0.35rem;
+  color: #45e8b6;
+  font-size: 0.58rem;
+}
+
+.job-source input {
+  grid-column: 1 / -1;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  color: #f5f8fb;
+  background: transparent;
+}
+
+.job-source input::placeholder {
+  color: #61768a;
+}
+
+.source-status {
+  color: #70869a;
+  font-size: 0.68rem;
+  font-weight: 750;
+}
+
+.source-status[data-status="scanning"] { color: #ffd28a; }
+.source-status[data-status="extracted"] { color: #7af2ca; }
+.source-status[data-status="no-jobs"] { color: #aabbd0; }
+.source-status[data-status="failed"] { color: #ffaaa4; }
+
+.job-scout-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+  margin-top: 1rem;
+}
+
+.job-scout-actions .primary-button {
+  flex: 1 1 320px;
+}
+
+.secondary-button {
+  min-height: 76px;
+  padding: 0 1.35rem;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 16px;
+  color: #d8e2ec;
+  background: rgba(255, 255, 255, 0.04);
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.secondary-button:disabled {
+  cursor: wait;
+  opacity: 0.55;
 }
 
 .primary-button {
@@ -299,6 +405,83 @@ h2 {
 
 .deep-read-panel[hidden] {
   display: none;
+}
+
+.job-results {
+  margin-top: 1.5rem;
+  padding: clamp(1.4rem, 4vw, 2.4rem);
+  border: 1px solid rgba(237, 167, 74, 0.25);
+  border-radius: 20px;
+  background: rgba(5, 15, 27, 0.58);
+}
+
+.job-results[hidden] {
+  display: none;
+}
+
+.job-results[aria-busy="true"] .pulse {
+  animation: pulse 1s ease-in-out infinite;
+}
+
+.job-results > h3 {
+  margin: 0;
+  font-size: clamp(1.5rem, 3vw, 2.3rem);
+  letter-spacing: -0.035em;
+}
+
+.job-result-list {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1.3rem;
+}
+
+.job-card {
+  position: relative;
+  padding: 1.4rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 17px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.job-rank {
+  position: absolute;
+  top: 1.2rem;
+  right: 1.2rem;
+  color: #eda74a;
+  font-size: 1.1rem;
+  font-weight: 900;
+}
+
+.job-card h4 {
+  max-width: calc(100% - 4rem);
+  margin: 0;
+  font-size: clamp(1.15rem, 2.5vw, 1.5rem);
+}
+
+.job-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem 1.1rem;
+  margin-top: 0.8rem;
+  color: #91a4b8;
+  font-size: 0.78rem;
+}
+
+.job-facts strong {
+  color: #c9d5e0;
+}
+
+.job-reasons {
+  display: grid;
+  gap: 0.65rem;
+  margin: 1rem 0 1.2rem;
+  padding-left: 1.2rem;
+  color: #aebdca;
+  line-height: 1.55;
+}
+
+.job-reasons strong {
+  color: #f0f4f8;
 }
 
 .panel-label {
@@ -529,8 +712,17 @@ input:focus-visible {
   }
 
   .news-radar,
-  .web-explorer {
+  .web-explorer,
+  .job-scout {
     border-radius: 22px;
+  }
+
+  .job-source-list {
+    grid-template-columns: 1fr;
+  }
+
+  .job-source:first-child {
+    grid-column: auto;
   }
 }
 
@@ -544,7 +736,8 @@ input:focus-visible {
   }
 
   .news-radar,
-  .web-explorer {
+  .web-explorer,
+  .job-scout {
     padding: 1.2rem;
   }
 

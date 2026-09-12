@@ -136,11 +136,75 @@
             <div id="explorer-result-content"></div>
           </section>
         </section>
+
+        <section class="job-scout" aria-labelledby="job-scout-title">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Multi-page comparison</p>
+              <h2 id="job-scout-title">Junior Job Scout</h2>
+            </div>
+            <p>
+              Paste up to 5 public job-listing pages. We will compare visible roles and
+              surface promising early-career opportunities.
+            </p>
+          </div>
+
+          <form class="job-scout-form" id="job-scout-form" novalidate>
+            <div class="job-source-list">
+              <label class="job-source" for="job-source-1">
+                <span class="job-source-label">Job Source 1 URL <strong>Required</strong></span>
+                <input id="job-source-1" class="job-source-input" type="url" inputmode="url" autocomplete="url" placeholder="https://public-jobs.example/search" required />
+                <span class="source-status" data-source-status="0">Waiting</span>
+              </label>
+              <label class="job-source" for="job-source-2">
+                <span class="job-source-label">Job Source 2 URL</span>
+                <input id="job-source-2" class="job-source-input" type="url" inputmode="url" placeholder="https://…" />
+                <span class="source-status" data-source-status="1">Waiting</span>
+              </label>
+              <label class="job-source" for="job-source-3">
+                <span class="job-source-label">Job Source 3 URL</span>
+                <input id="job-source-3" class="job-source-input" type="url" inputmode="url" placeholder="https://…" />
+                <span class="source-status" data-source-status="2">Waiting</span>
+              </label>
+              <label class="job-source" for="job-source-4">
+                <span class="job-source-label">Job Source 4 URL</span>
+                <input id="job-source-4" class="job-source-input" type="url" inputmode="url" placeholder="https://…" />
+                <span class="source-status" data-source-status="3">Waiting</span>
+              </label>
+              <label class="job-source" for="job-source-5">
+                <span class="job-source-label">Job Source 5 URL</span>
+                <input id="job-source-5" class="job-source-input" type="url" inputmode="url" placeholder="https://…" />
+                <span class="source-status" data-source-status="4">Waiting</span>
+              </label>
+            </div>
+
+            <div class="job-scout-actions">
+              <button class="primary-button" id="scan-jobs" type="submit">
+                <span>Find Junior Opportunities</span>
+                <span aria-hidden="true">↗</span>
+              </button>
+              <button class="secondary-button" id="clear-jobs" type="button">Clear Results</button>
+            </div>
+          </form>
+
+          <p class="message" id="job-scout-message" role="status" aria-live="polite">
+            Exact pages only—no login, site-wide crawl, saved history, or applications.
+          </p>
+
+          <section class="job-results" id="job-results" aria-labelledby="job-results-title" aria-live="polite" hidden>
+            <div class="panel-label">
+              <span class="pulse" aria-hidden="true"></span>
+              Ranked comparison
+            </div>
+            <h3 id="job-results-title">Top 5 Junior Opportunities</h3>
+            <div class="job-result-list" id="job-result-list"></div>
+          </section>
+        </section>
       </main>
 
       <footer>
         <p>Discovery by RSS <span>•</span> Retrieval by Firecrawl</p>
-        <p>Phase 2</p>
+        <p>Phase 4</p>
       </footer>
     </div>
   </body>

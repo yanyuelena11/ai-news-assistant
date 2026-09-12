@@ -10,6 +10,14 @@ const explorerButton = document.querySelector("#scrape-page");
 const explorerMessage = document.querySelector("#explorer-message");
 const explorerResult = document.querySelector("#explorer-result");
 const explorerResultContent = document.querySelector("#explorer-result-content");
+const jobScoutForm = document.querySelector("#job-scout-form");
+const jobSourceInputs = [...document.querySelectorAll(".job-source-input")];
+const jobSourceStatuses = [...document.querySelectorAll("[data-source-status]")];
+const scanJobsButton = document.querySelector("#scan-jobs");
+const clearJobsButton = document.querySelector("#clear-jobs");
+const jobScoutMessage = document.querySelector("#job-scout-message");
+const jobResults = document.querySelector("#job-results");
+const jobResultList = document.querySelector("#job-result-list");
 
 let loadedArticles = [];
 let activeDeepReadController = null;
@@ -321,6 +329,201 @@ async function explorePage(event) {
   }
 }
 
+function setJobScoutMessage(text, type = "info") {
+  jobScoutMessage.textContent = text;
+  jobScoutMessage.dataset.type = type;
+}
+
+function setSourceStatus(index, text, status = "waiting") {
+  const element = jobSourceStatuses[index];
+  element.textContent = text;
+  element.dataset.status = status;
+}
+
+function validateJobSourceUrls() {
+  const values = jobSourceInputs.map((input) => input.value.trim());
+  if (!values[0]) throw new Error("Job Source 1 is required.");
+
+  const urls = values.filter(Boolean).map((value) => {
+    let url;
+    try {
+      url = new URL(value);
+    } catch {
+      throw new Error("Every job source must be a complete http:// or https:// URL.");
+    }
+    if (!["http:", "https:"].includes(url.protocol)) {
+      throw new Error("Every job source must use http:// or https://.");
+    }
+    return url.href;
+  });
+
+  return [...new Set(urls)];
+}
+
+function updateReturnedSourceStatuses(sources) {
+  jobSourceInputs.forEach((input, index) => {
+    if (!input.value.trim()) {
+      setSourceStatus(index, "Waiting");
+      return;
+    }
+
+    let normalized = input.value.trim();
+    try {
+      normalized = new URL(normalized).href;
+    } catch {
+      setSourceStatus(index, "Could not extract", "failed");
+      return;
+    }
+
+    const source = sources.find((item) => item.url === normalized);
+    if (source?.status === "extracted") setSourceStatus(index, "Extracted", "extracted");
+    else if (source?.status === "no_jobs") setSourceStatus(index, "No jobs found", "no-jobs");
+    else setSourceStatus(index, "Could not extract", "failed");
+  });
+}
+
+function createJobFact(label, value) {
+  const item = document.createElement("span");
+  const labelNode = document.createElement("strong");
+  labelNode.textContent = `${label}: `;
+  item.append(labelNode, value);
+  return item;
+}
+
+function createJobCard(job, index) {
+  const card = document.createElement("article");
+  card.className = "job-card";
+
+  const rank = document.createElement("span");
+  rank.className = "job-rank";
+  rank.textContent = `#${index + 1}`;
+
+  const heading = document.createElement("h4");
+  heading.textContent = job.title;
+
+  const facts = document.createElement("div");
+  facts.className = "job-facts";
+  [
+    ["Employer", job.employer],
+    ["Location", job.location],
+    ["Type", job.employmentType],
+    ["Published", job.postedDate],
+    ["Source", job.sourceDomain],
+  ].filter(([, value]) => value).forEach(([label, value]) => {
+    facts.append(createJobFact(label, value));
+  });
+
+  const reasons = document.createElement("ul");
+  reasons.className = "job-reasons";
+  job.reasons.slice(0, 3).forEach((reason) => {
+    const item = document.createElement("li");
+    const label = document.createElement("strong");
+    label.textContent = `${reason.heading}: `;
+    item.append(label, reason.text);
+    reasons.append(item);
+  });
+
+  card.append(rank, heading, facts, reasons);
+
+  if (job.jobUrl) {
+    const link = document.createElement("a");
+    link.className = "text-link";
+    link.href = job.jobUrl;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    link.textContent = "Open Job Posting ↗";
+    card.append(link);
+  }
+
+  return card;
+}
+
+function renderJobResults(jobs) {
+  jobResults.hidden = false;
+  jobResults.setAttribute("aria-busy", "false");
+  jobResultList.replaceChildren();
+
+  if (jobs.length === 0) {
+    jobResultList.append(createEmptyState(
+      "No qualifying junior roles found",
+      "Try another public listing page with visible early-career opportunities.",
+    ));
+    return;
+  }
+
+  jobResultList.append(...jobs.slice(0, 5).map(createJobCard));
+}
+
+function clearJobScout() {
+  jobScoutForm.reset();
+  jobSourceStatuses.forEach((_, index) => setSourceStatus(index, "Waiting"));
+  jobResults.hidden = true;
+  jobResultList.replaceChildren();
+  setJobScoutMessage("Exact pages only—no login, site-wide crawl, saved history, or applications.");
+  jobSourceInputs[0].focus();
+}
+
+async function scanJobs(event) {
+  event.preventDefault();
+
+  let urls;
+  try {
+    urls = validateJobSourceUrls();
+  } catch (error) {
+    setJobScoutMessage(error.message, "error");
+    jobSourceInputs.find((input) => !input.value.trim())?.focus();
+    return;
+  }
+
+  jobResults.hidden = false;
+  jobResults.setAttribute("aria-busy", "true");
+  jobResultList.replaceChildren(createEmptyState(
+    "Scanning public job pages",
+    "Firecrawl is extracting visible listings and comparing early-career evidence…",
+  ));
+  jobSourceInputs.forEach((input, index) => {
+    setSourceStatus(index, input.value.trim() ? "Scanning" : "Waiting", input.value.trim() ? "scanning" : "waiting");
+    input.disabled = true;
+  });
+  scanJobsButton.disabled = true;
+  clearJobsButton.disabled = true;
+  scanJobsButton.querySelector("span").textContent = "Comparing opportunities…";
+  setJobScoutMessage(`Scanning ${urls.length} unique public source${urls.length === 1 ? "" : "s"}…`);
+
+  try {
+    const response = await fetch("/api/jobs/scan", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ urls }),
+    });
+    const payload = await response.json().catch(() => ({}));
+    const sources = Array.isArray(payload.sources) ? payload.sources : [];
+    updateReturnedSourceStatuses(sources);
+
+    if (!response.ok) {
+      throw new Error(payload.error || "The job pages could not be compared. Please try again.");
+    }
+
+    const jobs = Array.isArray(payload.jobs) ? payload.jobs : [];
+    renderJobResults(jobs);
+    const successful = sources.filter((source) => source.status === "extracted").length;
+    setJobScoutMessage(
+      jobs.length > 0
+        ? `Ranked ${jobs.length} junior opportunit${jobs.length === 1 ? "y" : "ies"} from ${successful} successful source${successful === 1 ? "" : "s"}.`
+        : "No qualifying junior opportunities were found. Try another public job page.",
+      jobs.length > 0 ? "info" : "warning",
+    );
+  } catch (error) {
+    jobResults.hidden = true;
+    setJobScoutMessage(error.message || "The job pages could not be compared. Please try again.", "error");
+  } finally {
+    jobSourceInputs.forEach((input) => { input.disabled = false; });
+    scanJobsButton.disabled = false;
+    clearJobsButton.disabled = false;
+    scanJobsButton.querySelector("span").textContent = "Find Junior Opportunities";
+  }
+}
+
 async function runDeepRead(article) {
   activeDeepReadController?.abort();
   activeDeepReadController = new AbortController();
@@ -387,3 +590,5 @@ async function loadLatestNews() {
 loadButton.addEventListener("click", loadLatestNews);
 filterInput.addEventListener("input", renderArticles);
 explorerForm.addEventListener("submit", explorePage);
+jobScoutForm.addEventListener("submit", scanJobs);
+clearJobsButton.addEventListener("click", clearJobScout);

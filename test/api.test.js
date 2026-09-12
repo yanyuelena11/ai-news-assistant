@@ -3,6 +3,7 @@ const test = require("node:test");
 
 const newsHandler = require("../api/news");
 const scrapeHandler = require("../api/scrape");
+const jobsHandler = require("../api/jobs/scan");
 
 function invoke(handler, request) {
   return new Promise((resolve) => {
@@ -107,5 +108,140 @@ test("scrape route normalizes and limits the Firecrawl response", async () => {
   assert.equal(result.body.page.title, "A useful story");
   assert.equal(result.body.page.domain, "example.com");
   assert.equal(result.body.page.content.length, 5_001);
+  assert.doesNotMatch(JSON.stringify(result.body), /test-secret/);
+});
+
+test("job scan validates source count, schemes, private hosts, and duplicates", () => {
+  assert.throws(() => jobsHandler._test.validateUrls([]), /at least one/i);
+  assert.throws(
+    () => jobsHandler._test.validateUrls(Array.from({ length: 6 }, (_, index) => `https://example${index}.com`)),
+    /no more than five/i,
+  );
+  assert.throws(() => jobsHandler._test.validateUrls(["file:///jobs"]), /http:\/\//i);
+  assert.throws(() => jobsHandler._test.validateUrls(["http://127.0.0.1/jobs"]), /public/i);
+  assert.equal(
+    jobsHandler._test.validateUrls(["https://example.com/jobs", "https://example.com/jobs"]).length,
+    1,
+  );
+});
+
+test("job ranking deprioritizes senior roles and returns exactly three reasons", () => {
+  const source = new URL("https://jobs.example.com/search");
+  const junior = jobsHandler._test.normalizeJob({
+    title: "Graduate Data Analyst",
+    employer: "Example Agency",
+    description: "Graduate role with training in analysis and digital services.",
+    juniorEvidence: ["The listing welcomes graduates."],
+    transferableSkills: ["Data analysis", "Communication"],
+    futureRelevantSignals: ["Digital services"],
+    learningSignals: ["Formal training"],
+    seniorityWarnings: [],
+  }, source);
+  const senior = jobsHandler._test.normalizeJob({
+    title: "Senior Data Director",
+    description: "Requires 8 years of experience.",
+    juniorEvidence: [],
+    transferableSkills: ["Leadership"],
+    futureRelevantSignals: ["Data strategy"],
+    learningSignals: [],
+    seniorityWarnings: ["Eight years of experience required"],
+  }, source);
+
+  const ranked = jobsHandler._test.rankJobs([senior, junior]);
+  assert.equal(ranked[0].title, "Graduate Data Analyst");
+  assert.equal(ranked[0].reasons.length, 3);
+  assert.deepEqual(ranked[0].reasons.map((reason) => reason.heading), [
+    "Accessible start",
+    "Skills you can build",
+    "Career exposure",
+  ]);
+});
+
+test("job scan handles one source and the five-source limit", async () => {
+  const originalFetch = global.fetch;
+  const originalKey = process.env.FIRECRAWL_API_KEY;
+  process.env.FIRECRAWL_API_KEY = "test-secret";
+  let requestCount = 0;
+  global.fetch = async () => {
+    requestCount += 1;
+    return {
+      ok: true,
+      async json() {
+        return { success: true, data: { markdown: "Jobs page", json: { jobs: [] } } };
+      },
+    };
+  };
+
+  const oneSource = await invoke(jobsHandler, {
+    method: "POST",
+    body: { urls: ["https://jobs1.example/search"] },
+  });
+  const fiveSources = await invoke(jobsHandler, {
+    method: "POST",
+    body: { urls: Array.from({ length: 5 }, (_, index) => `https://jobs${index + 1}.example/search`) },
+  });
+
+  global.fetch = originalFetch;
+  if (originalKey) process.env.FIRECRAWL_API_KEY = originalKey;
+  else delete process.env.FIRECRAWL_API_KEY;
+
+  assert.equal(oneSource.status, 200);
+  assert.equal(oneSource.body.sources.length, 1);
+  assert.equal(fiveSources.status, 200);
+  assert.equal(fiveSources.body.sources.length, 5);
+  assert.equal(requestCount, 6);
+});
+
+test("job scan keeps successful sources when another source fails", async () => {
+  const originalFetch = global.fetch;
+  const originalKey = process.env.FIRECRAWL_API_KEY;
+  process.env.FIRECRAWL_API_KEY = "test-secret";
+  global.fetch = async (_endpoint, options) => {
+    const request = JSON.parse(options.body);
+    if (request.url.includes("broken.example")) return { ok: false, status: 403 };
+    return {
+      ok: true,
+      async json() {
+        return {
+          success: true,
+          data: {
+            markdown: "Visible graduate opportunities",
+            json: {
+              jobs: [{
+                title: "Junior Policy Analyst",
+                employer: "Public Service",
+                location: "Remote",
+                jobUrl: "/jobs/123",
+                postedDate: "2026-09-12",
+                employmentType: "Full time",
+                description: "Entry-level analysis role with mentoring.",
+                juniorEvidence: ["Entry-level role"],
+                transferableSkills: ["Research", "Writing"],
+                futureRelevantSignals: ["Digital policy"],
+                learningSignals: ["Mentoring"],
+                seniorityWarnings: [],
+              }],
+            },
+          },
+        };
+      },
+    };
+  };
+
+  const result = await invoke(jobsHandler, {
+    method: "POST",
+    body: { urls: ["https://jobs.example/jobs", "https://broken.example/jobs"] },
+  });
+
+  global.fetch = originalFetch;
+  if (originalKey) process.env.FIRECRAWL_API_KEY = originalKey;
+  else delete process.env.FIRECRAWL_API_KEY;
+
+  assert.equal(result.status, 200);
+  assert.equal(result.body.jobs.length, 1);
+  assert.equal(result.body.sources[0].status, "extracted");
+  assert.equal(result.body.sources[1].status, "failed");
+  assert.equal(result.body.jobs[0].jobUrl, "https://jobs.example/jobs/123");
+  assert.doesNotMatch(JSON.stringify(result.body), /Visible graduate opportunities/);
   assert.doesNotMatch(JSON.stringify(result.body), /test-secret/);
 });
