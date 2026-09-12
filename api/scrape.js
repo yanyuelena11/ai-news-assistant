@@ -76,12 +76,12 @@ function limitContent(value) {
 
 function firecrawlError(status) {
   if (status === 401 || status === 403) {
-    return "Deep Read is not authorized. Check the server-side Firecrawl key.";
+    return "Page retrieval is not authorized. Check the server-side Firecrawl key.";
   }
-  if (status === 402) return "Deep Read usage is unavailable for this Firecrawl account.";
-  if (status === 429) return "Deep Read is busy right now. Please wait a moment and retry.";
+  if (status === 402) return "Page retrieval is unavailable for this Firecrawl account.";
+  if (status === 429) return "Page retrieval is busy right now. Please wait a moment and retry.";
   if (status >= 400 && status < 500) {
-    return "Firecrawl could not read that webpage. You can still open the original article.";
+    return "Firecrawl could not read that webpage. You can still open the original page.";
   }
   return "Firecrawl is temporarily unavailable. Please try again.";
 }
@@ -109,7 +109,7 @@ async function handler(request, response) {
   const apiKey = process.env.FIRECRAWL_API_KEY;
   if (!apiKey) {
     return sendJson(response, 503, {
-      error: "Deep Read is not configured yet. Add FIRECRAWL_API_KEY on the server.",
+      error: "Page retrieval is not configured yet. Add FIRECRAWL_API_KEY on the server.",
     });
   }
 
@@ -167,7 +167,7 @@ async function handler(request, response) {
     const timedOut = error?.name === "TimeoutError" || error?.name === "AbortError";
     return sendJson(response, 502, {
       error: timedOut
-        ? "Deep Read took too long. Please retry this article."
+        ? "Page retrieval took too long. Please retry this webpage."
         : "Firecrawl is temporarily unavailable. Please try again.",
     });
   }

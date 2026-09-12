@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       name="description"
-      content="Load and filter current AI news, then retrieve a clean Deep Read with Firecrawl."
+      content="Load and filter current AI news, then retrieve any public webpage with Firecrawl."
     />
     <title>AI News Briefing</title>
     <link rel="stylesheet" href="style.css" />
@@ -89,11 +89,58 @@
             </div>
           </div>
         </section>
+
+        <section class="web-explorer" aria-labelledby="explorer-title">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Firecrawl retrieval</p>
+              <h2 id="explorer-title">Explore Any Web Page</h2>
+            </div>
+            <p>Paste one public webpage URL to retrieve a clean, limited reading excerpt.</p>
+          </div>
+
+          <form class="explorer-form" id="explorer-form" novalidate>
+            <label class="filter-field explorer-url-field" for="explorer-url">
+              <span>Public webpage URL</span>
+              <input
+                id="explorer-url"
+                name="url"
+                type="url"
+                inputmode="url"
+                placeholder="https://example.com/article"
+                autocomplete="url"
+                required
+              />
+            </label>
+            <button class="primary-button" id="scrape-page" type="submit">
+              <span>Scrape Page</span>
+              <span aria-hidden="true">↗</span>
+            </button>
+          </form>
+
+          <p class="message" id="explorer-message" role="status" aria-live="polite">
+            One page per click. This does not crawl the rest of the website.
+          </p>
+
+          <section
+            class="deep-read-panel explorer-result"
+            id="explorer-result"
+            aria-labelledby="explorer-result-title"
+            aria-live="polite"
+            hidden
+          >
+            <div class="panel-label">
+              <span class="pulse" aria-hidden="true"></span>
+              Web Explorer result
+            </div>
+            <div id="explorer-result-content"></div>
+          </section>
+        </section>
       </main>
 
       <footer>
         <p>Discovery by RSS <span>•</span> Retrieval by Firecrawl</p>
-        <p>Phase 1</p>
+        <p>Phase 2</p>
       </footer>
     </div>
   </body>
