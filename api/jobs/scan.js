@@ -59,9 +59,13 @@ const JOB_SCHEMA = {
   additionalProperties: false,
 };
 
-const JUNIOR_PATTERN = /\b(junior|graduate|entry[ -]?level|trainee|intern(ship)?|assistant|associate|coordinator|analyst|apprentice|0\s*[–-]\s*2 years?|no (prior )?experience)\b/i;
+const JUNIOR_PATTERN = /\b(junior|graduate|new[ -]?grad(?:uate)?|entry[ -]?level|trainee|intern(ship)?|assistant|associate|coordinator|analyst|apprentice|0\s*[–-]\s*2 years?|no (prior )?experience)\b/i;
 const SENIOR_PATTERN = /\b(senior|lead|principal|head|director|executive|manager|5\+? years?|[5-9]\s*(or more|plus)? years?)\b/i;
 const CHALLENGE_PATTERN = /checking your browser|verification (failed|expired)|cloudflare|captcha|access denied/i;
+const JOB_HOST_PATTERN = /(^|\.)(jobs?|careers?)\.|lever\.co$|ashbyhq\.com$|greenhouse\.io$|workable\.com$/i;
+const JOB_PATH_PATTERN = /\/(jobs?|careers?|positions?|openings?|details?|posting)\b/i;
+const SKILL_PATTERN = /\b(data analysis|analysis|research|writing|communication|coordination|administration|design|software engineer(?:ing)?|engineering|customer support|project management)\b/gi;
+const FUTURE_PATTERN = /\b(AI|artificial intelligence|software|data|digital|technology|cloud|cybersecurity|policy|engineering|design)\b/gi;
 
 function sendJson(response, status, payload) {
   response.statusCode = status;
@@ -202,6 +206,76 @@ function normalizeJob(value, sourceUrl, pageText = "") {
   };
 }
 
+function exactMatches(value, pattern, limit = 3) {
+  return [...new Set(value.match(pattern) || [])].slice(0, limit);
+}
+
+function isLikelyJobLink(value, sourceUrl) {
+  try {
+    const link = new URL(value, sourceUrl);
+    return JOB_HOST_PATTERN.test(link.hostname)
+      || JOB_PATH_PATTERN.test(link.pathname);
+  } catch {
+    return false;
+  }
+}
+
+function visibleJob(title, jobUrl, sourceUrl) {
+  const cleanedTitle = cleanString(title.replace(/[*_`#]/g, ""), 180);
+  const juniorEvidence = exactMatches(cleanedTitle, new RegExp(JUNIOR_PATTERN.source, "gi"), 2);
+  if (!cleanedTitle || juniorEvidence.length === 0 || SENIOR_PATTERN.test(cleanedTitle)) return null;
+
+  return {
+    title: cleanedTitle,
+    employer: "",
+    location: "",
+    jobUrl,
+    postedDate: "",
+    employmentType: "",
+    description: "",
+    juniorEvidence,
+    transferableSkills: exactMatches(cleanedTitle, SKILL_PATTERN),
+    futureRelevantSignals: exactMatches(cleanedTitle, FUTURE_PATTERN),
+    learningSignals: [],
+    seniorityWarnings: [],
+    sourceDomain: sourceUrl.hostname.replace(/^www\./, ""),
+    sourceUrl: sourceUrl.href,
+  };
+}
+
+function parseVisibleJobs(markdown, sourceUrl) {
+  if (!markdown) return [];
+  const jobs = [];
+  const seen = new Set();
+  const linkPattern = /\[([^\]\n]+)\]\(([^)\s]+)\)/g;
+  let match;
+
+  while ((match = linkPattern.exec(markdown)) && jobs.length < MAX_JOBS_PER_SOURCE) {
+    if (!isLikelyJobLink(match[2], sourceUrl)) continue;
+    const jobUrl = safeJobUrl(match[2], sourceUrl, markdown);
+    const job = jobUrl ? visibleJob(match[1], jobUrl, sourceUrl) : null;
+    if (!job) continue;
+    const key = `${job.title}|${job.jobUrl}`.toLocaleLowerCase();
+    if (!seen.has(key)) {
+      seen.add(key);
+      jobs.push(job);
+    }
+  }
+
+  if (jobs.length === 0 && JOB_HOST_PATTERN.test(sourceUrl.hostname)) {
+    const headings = markdown.match(/^#{1,4}\s+.+$/gm) || [];
+    for (const heading of headings) {
+      const job = visibleJob(heading, sourceUrl.href, sourceUrl);
+      if (job) {
+        jobs.push(job);
+        break;
+      }
+    }
+  }
+
+  return jobs;
+}
+
 function dimensionScore(items) {
   if (items.length === 0) return 0;
   return Math.min(100, 50 + (items.length - 1) * 20);
@@ -227,10 +301,12 @@ function explanation(job) {
       ? `The listing uses an early-career signal in “${job.title}”.`
       : "The listing does not state a clear early-career requirement; review it carefully.");
   const skills = job.transferableSkills.slice(0, 3).join(", ")
-    || "No specific transferable skill was clearly extracted from this page.";
+    ? `The page explicitly names ${job.transferableSkills.slice(0, 3).join(", ")}.`
+    : "No specific transferable skill was clearly extracted from this page.";
   const exposureSignals = [...job.futureRelevantSignals, ...job.learningSignals].slice(0, 3);
-  const exposure = exposureSignals.join(", ")
-    || "No specific future-relevant or learning exposure was clearly extracted.";
+  const exposure = exposureSignals.length > 0
+    ? `The page explicitly identifies ${exposureSignals.join(", ")}.`
+    : "No specific future-relevant or learning exposure was clearly extracted.";
 
   return [
     { heading: "Accessible start", text: accessible },
@@ -306,7 +382,8 @@ async function extractSource(url, apiKey) {
     const extracted = Array.isArray(payload.data.json?.jobs)
       ? payload.data.json.jobs.slice(0, MAX_JOBS_PER_SOURCE)
       : [];
-    const jobs = extracted.map((job) => normalizeJob(job, url, markdown)).filter(Boolean);
+    const structuredJobs = extracted.map((job) => normalizeJob(job, url, markdown)).filter(Boolean);
+    const jobs = [...structuredJobs, ...parseVisibleJobs(markdown, url)].slice(0, MAX_JOBS_PER_SOURCE);
     if (jobs.length === 0) {
       return {
         jobs: [],
@@ -369,4 +446,4 @@ async function handler(request, response) {
 }
 
 module.exports = handler;
-module.exports._test = { explanation, normalizeJob, rankJobs, scoreJob, validateUrls };
+module.exports._test = { explanation, normalizeJob, parseVisibleJobs, rankJobs, scoreJob, validateUrls };

@@ -180,6 +180,23 @@ test("job extraction discards structured claims not grounded in scraped text", (
   assert.equal(invented, null);
 });
 
+test("job extraction can fall back to explicitly junior visible job links", () => {
+  const source = new URL("https://jobs.example.com/openings");
+  const markdown = [
+    "[Senior Data Director](https://jobs.example.com/roles/senior-data)",
+    "[Software Engineer, New Grad](https://jobs.example.com/roles/new-grad)",
+    "[About our junior community](https://example.com/community)",
+  ].join("\n");
+  const jobs = jobsHandler._test.parseVisibleJobs(markdown, source);
+
+  assert.equal(jobs.length, 1);
+  assert.equal(jobs[0].title, "Software Engineer, New Grad");
+  assert.equal(jobs[0].jobUrl, "https://jobs.example.com/roles/new-grad");
+  assert.deepEqual(jobs[0].juniorEvidence, ["New Grad"]);
+  assert.ok(jobs[0].transferableSkills.length > 0);
+  assert.ok(jobs[0].futureRelevantSignals.length > 0);
+});
+
 test("job scan handles one source and the five-source limit", async () => {
   const originalFetch = global.fetch;
   const originalKey = process.env.FIRECRAWL_API_KEY;
